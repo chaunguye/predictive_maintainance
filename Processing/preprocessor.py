@@ -11,7 +11,6 @@ def main():
     # IMPORTANT: We must download the Kafka connector JAR here
     spark = SparkSession.builder \
         .appName("Predictive Maintenance Consumer") \
-        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1") \
         .getOrCreate()
 
     # Set log level to WARN to avoid console spam
@@ -35,7 +34,7 @@ def main():
         .format("kafka") \
         .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
         .option("subscribe", KAFKA_TOPIC) \
-        .option("startingOffsets", "latest") \
+        .option("startingOffsets", "earliest") \
         .load()
 
     # 4. Parse JSON
