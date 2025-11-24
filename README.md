@@ -14,5 +14,4 @@ After that change the directory mapping in docker-compose.yml file to:
 
 Finally run docker-compose up --build to run the project
 
-To submit the spark job, please run:
-docker exec -it bda_project-spark-1 spark-submit  --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1  /app/preprocessor.py   #change to your script file
+To submit some spark job, please add it in the ./Processing/start.sh
