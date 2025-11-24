@@ -6,7 +6,7 @@ from kafka import KafkaProducer
 
 # --- CONFIGURATION ---
 # Path to data
-DATA_DIR = "/app/NASA_Bearing_Data/1nd_test/1nd_test" 
+DATA_DIR = "/app/NASA_Bearing_Data/1st_test/1st_test" 
 TOPIC_NAME = "data-sensors"
 
 # Simulate speed (0 = max speed, 30 = 30 second wait between files)
