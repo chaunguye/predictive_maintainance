@@ -1,4 +1,3 @@
-version: '3'
 services:
   zookeeper:
     image: wurstmeister/zookeeper
@@ -26,3 +25,13 @@ services:
     volumes:
       # Map the data folder from your laptop into the container
       - ./NASA_Bearing_Data:/app/NASA_Bearing_Data
+
+
+  spark:
+    build: ./Processing
+    environment:
+      - SPARK_MODE=master
+    depends_on:
+      - kafka
+    ports:
+      - "4040:4040" # Spark UI
