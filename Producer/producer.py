@@ -64,7 +64,7 @@ def run_producer():
 
         # 2. Convert filename to a timestamp string
         # Filename format: 2004.02.12.10.32.39 -> 2004-02-12 10:32:39
-        timestamp_str = filename.replace('.', '-', 3).replace('.', ':', 3).replace('-', '.', 1) # Quick fix or keep as is
+        timestamp_str = filename.replace('.', '-', 2).replace('.', ':', 3).replace(':', ' ', 1) 
 
         print(f"Streaming file: {filename} ({len(df)} rows)...")
         
