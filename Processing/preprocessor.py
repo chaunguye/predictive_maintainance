@@ -1,10 +1,16 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col
+from pyspark.sql.functions import from_json, col, first
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
+import joblib
+import pyspark.sql.functions as F
+import pandas as pd
+
 
 # --- CONFIGURATION ---
 KAFKA_TOPIC = "data-sensors"
 KAFKA_BOOTSTRAP_SERVERS = "kafka:9092"
+
+
 
 def main():
     # 1. Initialize Spark Session
@@ -27,6 +33,36 @@ def main():
         StructField("b4", DoubleType(), True),
     ])
 
+    # Load ML Models
+    bearing_model_path = "/app/models/bearing_rul_sklearn.pkl" 
+
+    print(f"[STREAM] Loading bearing model from {bearing_model_path}")
+    bearing_bundle = joblib.load(bearing_model_path)
+    bearing_model = bearing_bundle["model"]
+    bearing_feature_cols = bearing_bundle["feature_cols"]
+    print(f"[STREAM] Bearing model loaded. Features: {bearing_feature_cols}")
+
+    def predict_bearing_batch(df, batch_id: int):
+        if df.rdd.isEmpty():
+            return
+
+        pdf = df.toPandas()
+        if pdf.empty:
+            return
+
+        # Ensure all expected feature columns exist (fill missing with 0.0)
+        for col_name in bearing_feature_cols:
+            if col_name not in pdf.columns:
+                pdf[col_name] = 0.0
+
+        X = pdf[bearing_feature_cols].values
+        pdf["rul_prediction"] = bearing_model.predict(X)
+
+        # OUTPUT: Print to Docker Logs (Replaces format("console"))
+        print(f"--- Batch {batch_id} Processed ---")
+        # Print just the important columns to keep logs clean
+        print(pdf[['timestamp', 'rul_prediction']])
+
     print("--- Spark Started. Listening to Kafka... ---")
 
     # 3. Read Stream from Kafka
@@ -39,17 +75,52 @@ def main():
 
     # 4. Parse JSON
     # Kafka sends data in binary 'value' column. We cast to String -> JSON Struct
+    
+    # parsed_stream = raw_stream \
+    #     .selectExpr("CAST(value AS STRING)") \
+    #     .select(from_json(col("value"), schema).alias("data")) \
+    #     .select("data.*")
+    
     parsed_stream = raw_stream \
-        .selectExpr("CAST(value AS STRING)") \
-        .select(from_json(col("value"), schema).alias("data")) \
-        .select("data.*")
+        .select(F.from_json(F.col("value").cast("string"), schema).alias("data")) \
+        .select("data.*") \
+        .withColumn("event_time", F.to_timestamp(F.col("timestamp"), "yyyy-MM-dd HH:mm:ss"))
+    
+
+    feature_stream = parsed_stream \
+        .withWatermark("event_time", "30 seconds") \
+        .groupBy("event_time") \
+        .agg(
+            first("timestamp").alias("timestamp"),
+
+        # b1
+        F.max(F.abs(col("b1"))).alias("b1_max"),
+        (F.max(F.abs(col("b1"))) + F.abs(F.min(col("b1")))).alias("b1_p2p"),
+        F.sqrt(F.avg(col("b1") * col("b1"))).alias("b1_rms"),
+
+        # b2
+        F.max(F.abs(col("b2"))).alias("b2_max"),
+        (F.max(F.abs(col("b2"))) + F.abs(F.min(col("b2")))).alias("b2_p2p"),
+        F.sqrt(F.avg(col("b2") * col("b2"))).alias("b2_rms"),
+
+        # b3
+        F.max(F.abs(col("b3"))).alias("b3_max"),
+        (F.max(F.abs(col("b3"))) + F.abs(F.min(col("b3")))).alias("b3_p2p"),
+        F.sqrt(F.avg(col("b3") * col("b3"))).alias("b3_rms"),
+
+        # b4
+        F.max(F.abs(col("b4"))).alias("b4_max"),
+        (F.max(F.abs(col("b4"))) + F.abs(F.min(col("b4")))).alias("b4_p2p"),
+        F.sqrt(F.avg(col("b4") * col("b4"))).alias("b4_rms"),
+    )
+
+
 
     # 5. Output to Console (for debugging)
     # We use "append" mode to see new rows as they arrive
-    query = parsed_stream.writeStream \
+    query = feature_stream.writeStream \
         .outputMode("append") \
-        .format("console") \
-        .option("truncate", "false") \
+        .foreachBatch(predict_bearing_batch) \
         .start()
 
     query.awaitTermination()
