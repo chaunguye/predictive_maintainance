@@ -1,5 +1,5 @@
-# import os
-# from pathlib import Path
+#import os
+#from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -7,21 +7,26 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 import joblib
-import os
-from pathlib import Path
+
+
+# ---------------------------------------------------------
+# Fixed Docker-style paths (no host fallback)
+# ---------------------------------------------------------
+
+DATA_ROOT = Path("/app/NASA_Bearing_Data")
+
+DATASET_PATHS = [
+    DATA_ROOT / "1st_test" / "1st_test",
+    DATA_ROOT / "2nd_test" / "2nd_test",
+    DATA_ROOT / "3rd_test" / "4th_test",
+]
+
+MODELS_DIR = Path("/app/models")
 
 
 # -----------------------------
 # Feature engineering helpers
 # -----------------------------
-
-DATA_ROOT = "/app/NASA_Bearing_Data"  
-MODELS_DIR = "/app/models"  
-dataset_path = ["/app/NASA_Bearing_Data/1st_test/1st_test",
-                    "/app/NASA_Bearing_Data/2nd_test/2nd_test",
-                    "/app/NASA_Bearing_Data/3rd_test/4th_test"]
-
-
 
 def _shannon_entropy(values: np.ndarray, bins: int = 500) -> float:
     """Simple Shannon entropy implementation."""
@@ -62,42 +67,28 @@ def calculate_clearance(df: pd.DataFrame) -> np.ndarray:
     return np.array(result)
 
 
-def time_features(dataset_path) -> pd.DataFrame:
+def time_features(dataset_path: Path) -> pd.DataFrame:
     """
-    Compute rich time-domain features per file, using 4 channels: b1, b2, b3, b4.
+    Compute rich time-domain features per file, using 4 channels b1..b4.
 
     For each file:
       - If it has 8 columns (1st_test): use columns 0,2,4,6 (b1a,b2a,b3a,b4a)
       - If it has 4 columns (2nd/3rd_test): use all four as b1..b4
     """
-    time_feats = [
-        "mean",
-        "std",
-        "skew",
-        "kurtosis",
-        "entropy",
-        "rms",
-        "max",
-        "p2p",
-        "crest",
-        "clearance",
-        "shape",
-        "impulse",
-    ]
-
+    dataset_path = Path(dataset_path)
     base_cols = ["b1", "b2", "b3", "b4"]
     rows = []
 
     for filename in sorted(os.listdir(dataset_path)):
-        file_path = os.path.join(dataset_path, filename)
-        if not os.path.isfile(file_path):
+        file_path = dataset_path / filename
+        if not file_path.is_file():
             continue
 
         raw = pd.read_csv(file_path, sep="\t", header=None)
 
-        # Match the producer behaviour:
-        #  - 1st_test: 8 cols -> use a-channels: 0,2,4,6
-        #  - 2nd/3rd_test: 4 cols -> use all
+        # Match producer behaviour:
+        # - 1st_test: 8 cols -> use columns 0, 2, 4, 6
+        # - 2nd/3rd_test: 4 cols -> use all
         if raw.shape[1] == 8:
             raw4 = raw.iloc[:, [0, 2, 4, 6]].copy()
         elif raw.shape[1] == 4:
@@ -150,84 +141,71 @@ def time_features(dataset_path) -> pd.DataFrame:
         data.index = pd.to_datetime(data.index, format="%Y.%m.%d.%H.%M.%S")
         data = data.sort_index()
     except Exception:
-        # fallback: keep as-is if parsing fails
         data = data.sort_index()
 
     return data
 
 
-def build_rul_supervised(
+def build_rul_all_bearings(
     features: pd.DataFrame,
-    bearing_prefixes,
     selected_features=("max", "p2p", "rms"),
 ) -> pd.DataFrame:
     """
-    Create a supervised (features, RUL) dataset from the aggregated time features.
+    Create a supervised dataset with one row per (time, bearing).
 
-    Parameters
-    ----------
-    features : DataFrame
-        Output of time_features() with columns like 'b3_max', 'b3_p2p', ...
-    bearing_prefixes : list[str]
-        Channel prefixes, e.g. ["b3_"] or ["b4_"].
-    selected_features : tuple of str
-        Subset of time features to keep per bearing
-        (mirrors the notebook: max, p2p, rms).
+    For each timestamp:
+      - compute RUL as cycles until end of test
+      - for each bearing b1..b4, create one row with:
+          [max, p2p, rms] for that bearing, and label 'rul'.
+
+    We assume the rig's RUL applies to all four bearings at that time.
     """
     if features.empty:
-        return pd.DataFrame(columns=["rul"])
+        return pd.DataFrame(columns=[*selected_features, "rul"])
 
     df = features.copy().sort_index()
     df["cycle"] = np.arange(1, len(df) + 1)
-    # simple RUL in "cycles until end"
     df["rul"] = len(df) - df["cycle"] + 1
 
-    cols = []
-    for prefix in bearing_prefixes:
-        for tf in selected_features:
-            col_name = f"{prefix}{tf}"
-            if col_name in df.columns:
-                cols.append(col_name)
+    rows = []
+    for bearing_idx in range(1, 5):
+        prefix = f"b{bearing_idx}_"
+        for _, row in df.iterrows():
+            sample = {}
+            for tf in selected_features:
+                col_name = f"{prefix}{tf}"
+                sample[tf] = row.get(col_name, 0.0)
+            sample["rul"] = row["rul"]
+            rows.append(sample)
 
-    supervised = df[cols + ["rul"]].copy()
-    return supervised
+    return pd.DataFrame(rows)
 
 
 def main():
-    print(f"[BEARING] Computing time features from {dataset_path[0]}")
-    set1_feats = time_features(dataset_path[0])
+    print(f"[BEARING] Using DATA_ROOT = {DATA_ROOT}")
 
-    print(f"[BEARING] Computing time features from {dataset_path[1]}")
-    set2_feats = time_features(dataset_path[1])
+    # Ensure all dataset paths exist
+    for path in DATASET_PATHS:
+        if not path.exists():
+            raise FileNotFoundError(f"[BEARING] Dataset path does not exist: {path}")
 
-    print(f"[BEARING] Computing time features from {dataset_path[2]}")
-    set3_feats = time_features(dataset_path[2])
+    # 1) Compute features for each test set
+    set_feats = []
+    for i, path in enumerate(DATASET_PATHS, start=1):
+        print(f"[BEARING] Computing time features from {path}")
+        set_feats.append(time_features(path))
 
-    # Failing bearings per test:
-    #  - 1st test: bearing 3 -> "b3_"
-    #  - 2nd test: bearing 4 -> "b4_"
-    #  - 3rd test: bearing 3 -> "b3_"
-    set1_supervised = build_rul_supervised(
-        set1_feats,
-        bearing_prefixes=["b3_"],
-        selected_features=("max", "p2p", "rms"),
-    )
-    set2_supervised = build_rul_supervised(
-        set2_feats,
-        bearing_prefixes=["b4_"],
-        selected_features=("max", "p2p", "rms"),
-    )
-    set3_supervised = build_rul_supervised(
-        set3_feats,
-        bearing_prefixes=["b3_"],
-        selected_features=("max", "p2p", "rms"),
-    ) if not set3_feats.empty else pd.DataFrame(columns=["rul"])
+    # 2) Build supervised datasets (1 row per bearing per time)
+    sel_feats = ("max", "p2p", "rms")
+    supervised_dfs = [
+        build_rul_all_bearings(feats, selected_features=sel_feats) for feats in set_feats
+    ]
+    supervised_dfs = [df for df in supervised_dfs if not df.empty]
 
-    # Align feature columns across sets (fill missing with zeros)
-    supervised_dfs = [df for df in [set1_supervised, set2_supervised, set3_supervised] if not df.empty]
     if not supervised_dfs:
-        raise RuntimeError("[BEARING] No supervised data could be built from the bearing sets.")
+        raise RuntimeError("[BEARING] No supervised data built from any dataset.")
 
+    # 3) Align feature columns and concatenate
     feature_cols_sets = [set(c for c in df.columns if c != "rul") for df in supervised_dfs]
     all_feature_cols = sorted(set.union(*feature_cols_sets))
 
@@ -240,10 +218,10 @@ def main():
 
     aligned = [align(df) for df in supervised_dfs]
     all_data = pd.concat(aligned, ignore_index=True)
+    print(f"[BEARING] Final supervised dataset shape: {all_data.shape}")
+    print(f"[BEARING] Feature columns: {all_feature_cols}")
 
-    # -----------------------------
-    # scikit-learn model training
-    # -----------------------------
+    # 4) Train scikit-learn model
     X = all_data[all_feature_cols].values
     y = all_data["rul"].values
 
@@ -258,30 +236,24 @@ def main():
         random_state=42,
     )
 
+    print("[BEARING] Training GradientBoostingRegressor (scikit-learn)...")
     model.fit(X_train, y_train)
 
     y_pred = model.predict(X_test)
-
-    # Older scikit-learn versions don't support squared=False,
-    # so compute RMSE manually.
     mse = mean_squared_error(y_test, y_pred)
     rmse = mse ** 0.5
+    print(f"[BEARING] Test RMSE (scikit-learn): {rmse:.3f} cycles")
 
-
-    # Save model under repo_root/models/bearing_rul_sklearn.pkl
-    models_dir = Path("/app/models")
-    models_dir.mkdir(exist_ok=True)
-    model_path = models_dir / "bearing_rul_sklearn.pkl"
-
+    # 5) Save model to /app/models/bearing_rul_sklearn.pkl
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    model_path = MODELS_DIR / "bearing_rul_sklearn.pkl"
     bundle = {
         "model": model,
-        "feature_cols": all_feature_cols,
+        "feature_cols": all_feature_cols,  # should be ["max", "p2p", "rms"]
     }
     joblib.dump(bundle, model_path)
+    print(f"[BEARING] Saved scikit-learn model to {model_path}")
 
 
 if __name__ == "__main__":
     main()
-
-
-        
