@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS bearing_predictions (
+    timestamp TIMESTAMP NOT NULL,
+    b1_max DOUBLE PRECISION,
+    b1_p2p DOUBLE PRECISION,
+    b1_rms DOUBLE PRECISION,
+    b2_max DOUBLE PRECISION,
+    b2_p2p DOUBLE PRECISION,
+    b2_rms DOUBLE PRECISION,
+    b3_max DOUBLE PRECISION,
+    b3_p2p DOUBLE PRECISION,
+    b3_rms DOUBLE PRECISION,
+    b4_max DOUBLE PRECISION,
+    b4_p2p DOUBLE PRECISION,
+    b4_rms DOUBLE PRECISION,
+    rul_prediction DOUBLE PRECISION,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_bearing_timestamp ON bearing_predictions(timestamp);
