@@ -25,9 +25,9 @@ and run docker-compose down -v to stop.
 **In VS Code:**
 <br />
 1. Open Processing/start.sh.
-<br />
+
 2. Look at the bottom right corner of the window. It probably says CRLF.
-<br />
+
 3. Click CRLF and change it to LF.
-<br />
+
 4. Save the file.
