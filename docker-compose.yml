@@ -42,3 +42,18 @@ services:
       - ./Processing:/app/Processing
       - ./NASA_Bearing_Data:/app/NASA_Bearing_Data
       - ./Processing/models:/app/models
+
+  postgresql:
+    image: bitnami/postgresql:latest
+    environment:
+      POSTGRES_USER: bigdatauser
+      POSTGRES_PASSWORD: group5
+      POSTGRES_DATABASE: predictive_maintenance
+    ports:
+      - "5432:5432"
+    volumes:
+      - .postgres_data:/bitnami/postgresql
+      - ./postgres_init:/docker-entrypoint-initdb.d
+
+volumes:
+  postgres_data:

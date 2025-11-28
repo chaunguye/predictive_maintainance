@@ -10,7 +10,12 @@ import pandas as pd
 KAFKA_TOPIC = "data-sensors"
 KAFKA_BOOTSTRAP_SERVERS = "kafka:9092"
 
-
+JDBC_URL = "jdbc:postgresql://postgresql:5432/predictive_maintenance"
+JDBC_PROPS = {
+    "user": "bigdatauser",
+    "password": "group5",
+    "driver": "org.postgresql.Driver"
+}
 
 def main():
     # 1. Initialize Spark Session
@@ -62,6 +67,18 @@ def main():
         print(f"--- Batch {batch_id} Processed ---")
         # Print just the important columns to keep logs clean
         print(pdf[['timestamp', 'rul_prediction']])
+
+        final_df = spark.createDataFrame(pdf)
+        # 2. Write to Postgres
+        try:
+            final_df.select("timestamp", "b1_max", "b1_p2p", "b1_rms", "b2_max", "b2_p2p", "b2_rms", "b3_max", "b3_p2p", "b3_rms", "b4_max", "b4_p2p", "b4_rms", "rul_prediction") \
+                .write \
+                .mode("append") \
+                .jdbc(url=JDBC_URL, table="bearing_predictions", properties=JDBC_PROPS)
+            
+            print("Successfully wrote to Database!")
+        except Exception as e:
+            print(f"Database Error: {e}")
 
     print("--- Spark Started. Listening to Kafka... ---")
 
