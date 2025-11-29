@@ -50,28 +50,39 @@ def main():
     def predict_bearing_batch(df, batch_id: int):
         if df.rdd.isEmpty():
             return
+        print(f"[STREAM] Processing bearing batch {batch_id} with {df.count()} records")
+        print(df.show(5, truncate=False))
 
         pdf = df.toPandas()
         if pdf.empty:
             return
+        
 
-        # Ensure all expected feature columns exist (fill missing with 0.0)
-        for col_name in bearing_feature_cols:
-            if col_name not in pdf.columns:
-                pdf[col_name] = 0.0
-
-        X = pdf[bearing_feature_cols].values
-        pdf["rul_prediction"] = bearing_model.predict(X)
+        for bearing_idx in range(1, 5):
+            input_batch = []
+            prefix = f"b{bearing_idx}_"
+            for _, row in pdf.iterrows():
+                sample = {}
+                for tf in bearing_feature_cols:
+                    col_name = f"{prefix}{tf}"
+                    sample[tf] = row.get(col_name, 0.0)
+                input_batch.append(sample)
+            X_bearing = pd.DataFrame(input_batch)[bearing_feature_cols].values
+            pdf[f"b{bearing_idx}_rul"] = bearing_model.predict(X_bearing)
 
         # OUTPUT: Print to Docker Logs (Replaces format("console"))
         print(f"--- Batch {batch_id} Processed ---")
         # Print just the important columns to keep logs clean
-        print(pdf[['timestamp', 'rul_prediction']])
+        print(pdf[["timestamp", "b1_rul", "b2_rul", "b3_rul", "b4_rul"]].head(10))
 
         final_df = spark.createDataFrame(pdf)
+        final_df = final_df.withColumn(
+            "timestamp", 
+            F.to_timestamp(F.col("timestamp"), "yyyy-MM-dd HH:mm:ss")
+        )
         # 2. Write to Postgres
         try:
-            final_df.select("timestamp", "b1_max", "b1_p2p", "b1_rms", "b2_max", "b2_p2p", "b2_rms", "b3_max", "b3_p2p", "b3_rms", "b4_max", "b4_p2p", "b4_rms", "rul_prediction") \
+            final_df.select("timestamp", "b1_max", "b1_p2p", "b1_rms", "b1_rul", "b2_max", "b2_p2p", "b2_rms", "b2_rul", "b3_max", "b3_p2p", "b3_rms", "b3_rul", "b4_max", "b4_p2p", "b4_rms", "b4_rul") \
                 .write \
                 .mode("append") \
                 .jdbc(url=JDBC_URL, table="bearing_predictions", properties=JDBC_PROPS)
