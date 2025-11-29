@@ -52,8 +52,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - .postgres_data:/bitnami/postgresql
-      - ./postgres_init:/docker-entrypoint-initdb.d
+      - postgres_data:/bitnami/postgresql
+      - ./postgresql_init:/docker-entrypoint-initdb.d
 
 volumes:
   postgres_data:

@@ -11,3 +11,4 @@ echo "Submitting Spark Streaming Job..."
 # Since your python script has .awaitTermination(), this command will 
 # stay running forever, keeping the container alive.
 spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.postgresql:postgresql:42.6.0 /app/preprocessor.py
+# spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 /app/Processing/train_bearing_model.py
