@@ -148,7 +148,7 @@ def time_features(dataset_path: Path) -> pd.DataFrame:
 
 def build_rul_all_bearings(
     features: pd.DataFrame,
-    selected_features=("max", "p2p", "rms"),
+    selected_features=("max", "p2p", "rms", "std", "kurtosis"),
 ) -> pd.DataFrame:
     """
     Create a supervised dataset with one row per (time, bearing).
@@ -196,7 +196,7 @@ def main():
         set_feats.append(time_features(path))
 
     # 2) Build supervised datasets (1 row per bearing per time)
-    sel_feats = ("max", "p2p", "rms")
+    sel_feats = ("max", "p2p", "rms", "std", "kurtosis")
     supervised_dfs = [
         build_rul_all_bearings(feats, selected_features=sel_feats) for feats in set_feats
     ]
