@@ -77,16 +77,30 @@ def main():
 
         final_df = spark.createDataFrame(pdf)
         final_df = final_df.withColumn(
-            "timestamp", 
+            "timestamp",
             F.to_timestamp(F.col("timestamp"), "yyyy-MM-dd HH:mm:ss")
         )
-        # 2. Write to Postgres
+
         try:
-            final_df.select("timestamp", "b1_max", "b1_p2p", "b1_rms", "b1_rul", "b2_max", "b2_p2p", "b2_rms", "b2_rul", "b3_max", "b3_p2p", "b3_rms", "b3_rul", "b4_max", "b4_p2p", "b4_rms", "b4_rul") \
-                .write \
-                .mode("append") \
-                .jdbc(url=JDBC_URL, table="bearing_predictions", properties=JDBC_PROPS)
-            
+            final_df.select(
+                "timestamp",
+
+                # b1
+                "b1_max", "b1_p2p", "b1_rms", "b1_std", "b1_kurtosis", "b1_rul",
+
+                # b2
+                "b2_max", "b2_p2p", "b2_rms", "b2_std", "b2_kurtosis", "b2_rul",
+
+                # b3
+                "b3_max", "b3_p2p", "b3_rms", "b3_std", "b3_kurtosis", "b3_rul",
+
+                # b4
+                "b4_max", "b4_p2p", "b4_rms", "b4_std", "b4_kurtosis", "b4_rul",
+            ) \
+            .write \
+            .mode("append") \
+            .jdbc(url=JDBC_URL, table="bearing_predictions", properties=JDBC_PROPS)
+
             print("Successfully wrote to Database!")
         except Exception as e:
             print(f"Database Error: {e}")
@@ -116,30 +130,38 @@ def main():
     
 
     feature_stream = parsed_stream \
-        .withWatermark("event_time", "30 seconds") \
-        .groupBy("event_time") \
-        .agg(
-            first("timestamp").alias("timestamp"),
+    .withWatermark("event_time", "30 seconds") \
+    .groupBy("event_time") \
+    .agg(
+        first("timestamp").alias("timestamp"),
 
         # b1
         F.max(F.abs(col("b1"))).alias("b1_max"),
         (F.max(F.abs(col("b1"))) + F.abs(F.min(col("b1")))).alias("b1_p2p"),
         F.sqrt(F.avg(col("b1") * col("b1"))).alias("b1_rms"),
+        F.stddev(col("b1")).alias("b1_std"),
+        F.kurtosis(col("b1")).alias("b1_kurtosis"),
 
         # b2
         F.max(F.abs(col("b2"))).alias("b2_max"),
         (F.max(F.abs(col("b2"))) + F.abs(F.min(col("b2")))).alias("b2_p2p"),
         F.sqrt(F.avg(col("b2") * col("b2"))).alias("b2_rms"),
+        F.stddev(col("b2")).alias("b2_std"),
+        F.kurtosis(col("b2")).alias("b2_kurtosis"),
 
         # b3
         F.max(F.abs(col("b3"))).alias("b3_max"),
         (F.max(F.abs(col("b3"))) + F.abs(F.min(col("b3")))).alias("b3_p2p"),
         F.sqrt(F.avg(col("b3") * col("b3"))).alias("b3_rms"),
+        F.stddev(col("b3")).alias("b3_std"),
+        F.kurtosis(col("b3")).alias("b3_kurtosis"),
 
         # b4
         F.max(F.abs(col("b4"))).alias("b4_max"),
         (F.max(F.abs(col("b4"))) + F.abs(F.min(col("b4")))).alias("b4_p2p"),
         F.sqrt(F.avg(col("b4") * col("b4"))).alias("b4_rms"),
+        F.stddev(col("b4")).alias("b4_std"),
+        F.kurtosis(col("b4")).alias("b4_kurtosis"),
     )
 
 
