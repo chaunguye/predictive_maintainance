@@ -4,8 +4,6 @@
 
 This project builds a data pipeline for predictive maintenance using the NASA Bearing Dataset. The pipeline streams sensor data, processes it, stores the processed output, and supports business intelligence reporting through Power BI.
 
-> Repository name: `predictive_maintainance`
-
 ---
 
 ## Table of Contents
