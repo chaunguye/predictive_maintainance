@@ -112,25 +112,19 @@ maintenance_insights.jpg
 ### Dashboard Overview
 
 <p align="center">
-  <img src="assets/powerbi/dashboard_overview.jpg" alt="Power BI Dashboard Overview" width="850">
-</p>
-
-### Bearing Health Summary
-
-<p align="center">
-  <img src="assets/powerbi/bearing_health_summary.jpg" alt="Bearing Health Summary Dashboard" width="850">
+  <img src="Dashboard (Power BI)/Overview.jpg" alt="Power BI Dashboard Overview" width="850">
 </p>
 
 ### Sensor Trend Analysis
 
 <p align="center">
-  <img src="assets/powerbi/sensor_trend_analysis.jpg" alt="Sensor Trend Analysis Dashboard" width="850">
+  <img src="assets/powerbi/Diagnostics (Trend).jpg" alt="Sensor Trend Analysis Dashboard" width="850">
 </p>
 
 ### Maintenance Insights
 
 <p align="center">
-  <img src="assets/powerbi/maintenance_insights.jpg" alt="Maintenance Insights Dashboard" width="850">
+  <img src="assets/powerbi/Diagnostics (Risk-Reward).jpg" alt="Maintenance Insights Dashboard" width="850">
 </p>
 
 ---
