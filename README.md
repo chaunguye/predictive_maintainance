@@ -118,13 +118,13 @@ maintenance_insights.jpg
 ### Sensor Trend Analysis
 
 <p align="center">
-  <img src="Dashboard (Power BI)Diagnostics (Trend).jpg" alt="Sensor Trend Analysis Dashboard" width="850">
+  <img src="Dashboard (Power BI)/Diagnostics (Trend).jpg" alt="Sensor Trend Analysis Dashboard" width="850">
 </p>
 
 ### Maintenance Insights
 
 <p align="center">
-  <img src="Dashboard (Power BI)Diagnostics (Risk-Reward).jpg" alt="Maintenance Insights Dashboard" width="850">
+  <img src="Dashboard (Power BI)/Diagnostics (Risk-Reward).jpg" alt="Maintenance Insights Dashboard" width="850">
 </p>
 
 ---
