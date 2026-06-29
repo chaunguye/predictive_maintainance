@@ -217,22 +217,3 @@ To stop and remove the running containers and volumes, run:
 ```bash
 docker-compose down -v
 ```
-
----
-
-## Suggested Git Commands for Adding Power BI Images
-
-```bash
-mkdir -p assets/powerbi
-
-# Copy your exported .jpg Power BI screenshots into assets/powerbi/
-# Example filenames:
-# dashboard_overview.jpg
-# bearing_health_summary.jpg
-# sensor_trend_analysis.jpg
-# maintenance_insights.jpg
-
-git add README.md assets/powerbi/*.jpg
-git commit -m "Update README with Power BI dashboard showcase"
-git push
-```
